@@ -4,11 +4,7 @@ import { useSttApiState } from "./useSttApiState";
 import { useSettings } from "@/hooks/useSettings";
 import { commands } from "@/bindings";
 
-import {
-  SettingContainer,
-  SettingsGroup,
-  ToggleSwitch,
-} from "@/components/ui";
+import { SettingContainer, SettingsGroup, ToggleSwitch } from "@/components/ui";
 import { ProviderSelect } from "../PostProcessingSettingsApi/ProviderSelect";
 import { BaseUrlField } from "../PostProcessingSettingsApi/BaseUrlField";
 import { ApiKeyField } from "../PostProcessingSettingsApi/ApiKeyField";
@@ -39,10 +35,12 @@ export const SttApiSettingsComponent: React.FC = () => {
   const handleToggleEnabled = async (enabled: boolean) => {
     try {
       await commands.setSttApiEnabled(enabled);
-      updateSetting("stt_api", {
-        ...sttApiSettings,
-        enabled,
-      });
+      if (sttApiSettings) {
+        updateSetting("stt_api", {
+          ...sttApiSettings,
+          enabled,
+        });
+      }
     } catch (error) {
       console.error("Failed to toggle STT API:", error);
     }
@@ -50,18 +48,14 @@ export const SttApiSettingsComponent: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <SettingContainer
-        title={t("settings.sttApi.enabled.title")}
+      <ToggleSwitch
+        checked={isEnabled}
+        onChange={handleToggleEnabled}
+        label={t("settings.sttApi.enabled.title")}
         description={t("settings.sttApi.enabled.description")}
         descriptionMode="tooltip"
-        layout="horizontal"
         grouped={true}
-      >
-        <ToggleSwitch
-          checked={isEnabled}
-          onChange={handleToggleEnabled}
-        />
-      </SettingContainer>
+      />
 
       {isEnabled && (
         <>

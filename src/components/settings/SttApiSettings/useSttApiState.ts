@@ -39,16 +39,18 @@ export function useSttApiState() {
       setSelectedProviderId(sttApiSettings.provider_id);
 
       const currentProvider = sttApiSettings.providers.find(
-        (p) => p.id === sttApiSettings.provider_id
+        (p) => p.id === sttApiSettings.provider_id,
       );
       if (currentProvider) {
         setBaseUrl(currentProvider.base_url);
       }
 
-      const currentApiKey = sttApiSettings.api_keys[sttApiSettings.provider_id] ?? "";
+      const currentApiKey =
+        sttApiSettings.api_keys[sttApiSettings.provider_id] ?? "";
       setApiKey(currentApiKey);
 
-      const currentModel = sttApiSettings.models[sttApiSettings.provider_id] ?? "whisper-1";
+      const currentModel =
+        sttApiSettings.models[sttApiSettings.provider_id] ?? "whisper-1";
       setModel(currentModel);
     }
   }, [sttApiSettings?.provider_id]);
@@ -56,7 +58,7 @@ export function useSttApiState() {
   // Handle provider selection
   const handleProviderSelect = useCallback(
     async (providerId: string) => {
-      if (!providerId) return;
+      if (!providerId || !sttApiSettings) return;
 
       try {
         await commands.setSttApiProvider(providerId);
@@ -72,14 +74,15 @@ export function useSttApiState() {
           setBaseUrl(provider.base_url);
           const providerApiKey = sttApiSettings?.api_keys[providerId] ?? "";
           setApiKey(providerApiKey);
-          const providerModel = sttApiSettings?.models[providerId] ?? "whisper-1";
+          const providerModel =
+            sttApiSettings?.models[providerId] ?? "whisper-1";
           setModel(providerModel);
         }
       } catch (error) {
         console.error("Failed to set STT API provider:", error);
       }
     },
-    [providers, sttApiSettings, updateSetting]
+    [providers, sttApiSettings, updateSetting],
   );
 
   // Handle base URL change
@@ -95,7 +98,7 @@ export function useSttApiState() {
         // Update local state
         if (sttApiSettings) {
           const updatedProviders = sttApiSettings.providers.map((p) =>
-            p.id === selectedProviderId ? { ...p, base_url: newBaseUrl } : p
+            p.id === selectedProviderId ? { ...p, base_url: newBaseUrl } : p,
           );
           updateSetting("stt_api", {
             ...sttApiSettings,
@@ -108,7 +111,7 @@ export function useSttApiState() {
         setIsBaseUrlUpdating(false);
       }
     },
-    [isCustomProvider, selectedProviderId, sttApiSettings, updateSetting]
+    [isCustomProvider, selectedProviderId, sttApiSettings, updateSetting],
   );
 
   // Handle API key change
@@ -136,7 +139,7 @@ export function useSttApiState() {
         setIsApiKeyUpdating(false);
       }
     },
-    [selectedProviderId, sttApiSettings, updateSetting]
+    [selectedProviderId, sttApiSettings, updateSetting],
   );
 
   // Handle model change
@@ -164,7 +167,7 @@ export function useSttApiState() {
         setIsModelUpdating(false);
       }
     },
-    [selectedProviderId, sttApiSettings, updateSetting]
+    [selectedProviderId, sttApiSettings, updateSetting],
   );
 
   return {
