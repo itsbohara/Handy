@@ -29,6 +29,7 @@ dist-ssr
 /target/
 recording_*
 .crush/
+.beads/
 
 # Playwright
 playwright-report/
