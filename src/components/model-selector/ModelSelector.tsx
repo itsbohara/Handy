@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import { produce } from "immer";
-import { commands, type ModelInfo } from "@/bindings";
+import { commands, type ModelInfo, type SttApiSettings } from "@/bindings";
 import { getTranslatedModelName } from "../../lib/utils/modelTranslation";
 import ModelStatusButton from "./ModelStatusButton";
 import ModelDropdown from "./ModelDropdown";
@@ -58,18 +58,34 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
   const [extractingModels, setExtractingModels] = useState<
     Record<string, true>
   >({});
+  const [sttApiSettings, setSttApiSettings] = useState<SttApiSettings | null>(
+    null,
+  );
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadModels();
     loadCurrentModel();
+    loadSttApiSettings();
 
     // Listen for model state changes
     const modelStateUnlisten = listen<ModelStateEvent>(
       "model-state-changed",
       (event) => {
         const { event_type, model_id, model_name, error } = event.payload;
+
+        // API model doesn't have loading states - it's always ready
+        if (
+          model_id === "api" &&
+          (event_type === "loading_started" ||
+            event_type === "loading_completed")
+        ) {
+          setModelStatus("ready");
+          setModelError(null);
+          setCurrentModelId(model_id);
+          return;
+        }
 
         switch (event_type) {
           case "loading_started":
@@ -269,6 +285,12 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
         setCurrentModelId(current);
 
         if (current) {
+          // API model is always "ready" since it doesn't need local loading
+          if (current === "api") {
+            setModelStatus("ready");
+            return;
+          }
+
           // Check if model is actually loaded
           const statusResult = await commands.getTranscriptionModelStatus();
           if (statusResult.status === "ok") {
@@ -287,6 +309,17 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
       console.error("Failed to load current model:", err);
       setModelStatus("error");
       setModelError("Failed to check model status");
+    }
+  };
+
+  const loadSttApiSettings = async () => {
+    try {
+      const result = await commands.getSttApiSettings();
+      if (result.status === "ok") {
+        setSttApiSettings(result.data);
+      }
+    } catch (err) {
+      console.error("Failed to load STT API settings:", err);
     }
   };
 
@@ -366,6 +399,48 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
     }
 
     const currentModel = getCurrentModel();
+
+    // For API model, show provider and model name
+    const getApiModelDisplay = (modelId: string): string => {
+      // Get model info either from currentModel or by looking up in models list
+      const model =
+        currentModel?.id === modelId
+          ? currentModel
+          : models.find((m) => m.id === modelId);
+
+      // Get translated name - use "External API" as fallback if model not found yet
+      const modelName = model
+        ? getTranslatedModelName(model, t)
+        : t("onboarding.models.api.name");
+
+      // If settings haven't loaded yet, just show model name
+      if (!sttApiSettings) {
+        return modelName;
+      }
+
+      // If STT API is not enabled, show config prompt
+      if (!sttApiSettings.enabled) {
+        return t("modelSelector.apiModelNotConfigured", { modelName });
+      }
+
+      const provider = sttApiSettings.providers.find(
+        (p) => p.id === sttApiSettings.provider_id,
+      );
+      const modelFromSettings =
+        sttApiSettings.models[sttApiSettings.provider_id] || "";
+      if (provider && modelFromSettings) {
+        return `${provider.label} - ${modelFromSettings}`;
+      } else if (provider) {
+        return provider.label;
+      }
+      return modelName;
+    };
+
+    // API model display takes precedence for all statuses
+    // Check using currentModelId since currentModel might be undefined while loading
+    if (currentModelId === "api") {
+      return getApiModelDisplay("api");
+    }
 
     switch (modelStatus) {
       case "ready":

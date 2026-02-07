@@ -6,9 +6,11 @@ use crate::managers::history::HistoryManager;
 use crate::managers::transcription::TranscriptionManager;
 use crate::settings::{get_settings, AppSettings, APPLE_INTELLIGENCE_PROVIDER_ID};
 use crate::shortcut;
+use crate::stt_client::transcribe_with_stt_api;
 use crate::tray::{change_tray_icon, TrayIconState};
 use crate::utils::{self, show_recording_overlay, show_transcribing_overlay};
 use crate::ManagedToggleState;
+use anyhow;
 use ferrous_opencc::{config::BuiltinConfig, OpenCC};
 use log::{debug, error};
 use once_cell::sync::Lazy;
@@ -319,7 +321,24 @@ impl ShortcutAction for TranscribeAction {
 
                 let transcription_time = Instant::now();
                 let samples_clone = samples.clone(); // Clone for history saving
-                match tm.transcribe(samples) {
+
+                // Check if we should use STT API
+                let settings = get_settings(&ah);
+                let stt_api_enabled = settings.stt_api.enabled;
+                let transcription_result = if stt_api_enabled {
+                    debug!("Using STT API for transcription (from actions)");
+                    match transcribe_with_stt_api(&ah, samples).await {
+                        Ok(text) => Ok(text),
+                        Err(e) => {
+                            error!("STT API transcription failed: {}", e);
+                            Err(anyhow::anyhow!("STT API failed: {}", e))
+                        }
+                    }
+                } else {
+                    tm.transcribe(samples)
+                };
+
+                match transcription_result {
                     Ok(transcription) => {
                         debug!(
                             "Transcription completed in {:?}: '{}'",
@@ -327,7 +346,7 @@ impl ShortcutAction for TranscribeAction {
                             transcription
                         );
                         if !transcription.is_empty() {
-                            let settings = get_settings(&ah);
+                            // Settings fetched above
                             let mut final_text = transcription.clone();
                             let mut post_processed_text: Option<String> = None;
                             let mut post_process_prompt: Option<String> = None;

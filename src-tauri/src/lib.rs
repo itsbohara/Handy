@@ -13,6 +13,7 @@ mod overlay;
 mod settings;
 mod shortcut;
 mod signal_handle;
+mod stt_client;
 mod tray;
 mod tray_i18n;
 mod utils;
@@ -300,6 +301,12 @@ pub fn run() {
         commands::models::has_any_models_available,
         commands::models::has_any_models_or_downloads,
         commands::models::get_recommended_first_model,
+        commands::stt_api::get_stt_api_settings,
+        commands::stt_api::set_stt_api_enabled,
+        commands::stt_api::set_stt_api_provider,
+        commands::stt_api::set_stt_api_base_url,
+        commands::stt_api::set_stt_api_key,
+        commands::stt_api::set_stt_api_model,
         commands::audio::update_microphone_mode,
         commands::audio::get_microphone_mode,
         commands::audio::get_available_microphones,

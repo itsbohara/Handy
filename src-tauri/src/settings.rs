@@ -158,6 +158,58 @@ pub enum KeyboardImplementation {
     HandyKeys,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Type)]
+pub struct SttApiProvider {
+    pub id: String,
+    pub label: String,
+    pub base_url: String,
+    #[serde(default)]
+    pub allow_base_url_edit: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Type)]
+pub struct SttApiSettings {
+    pub enabled: bool,
+    pub provider_id: String,
+    pub providers: Vec<SttApiProvider>,
+    pub api_keys: HashMap<String, String>,
+    pub models: HashMap<String, String>,
+}
+
+impl Default for SttApiSettings {
+    fn default() -> Self {
+        let providers = vec![
+            SttApiProvider {
+                id: "openai".to_string(),
+                label: "OpenAI".to_string(),
+                base_url: "https://api.openai.com/v1".to_string(),
+                allow_base_url_edit: false,
+            },
+            SttApiProvider {
+                id: "custom".to_string(),
+                label: "Custom".to_string(),
+                base_url: "http://localhost:8000/v1".to_string(),
+                allow_base_url_edit: true,
+            },
+        ];
+
+        let mut api_keys = HashMap::new();
+        let mut models = HashMap::new();
+        for provider in &providers {
+            api_keys.insert(provider.id.clone(), String::new());
+            models.insert(provider.id.clone(), "whisper-1".to_string());
+        }
+
+        Self {
+            enabled: false,
+            provider_id: "openai".to_string(),
+            providers,
+            api_keys,
+            models,
+        }
+    }
+}
+
 impl Default for KeyboardImplementation {
     fn default() -> Self {
         // Default to HandyKeys only on macOS where it's well-tested.
@@ -317,6 +369,8 @@ pub struct AppSettings {
     pub keyboard_implementation: KeyboardImplementation,
     #[serde(default = "default_paste_delay_ms")]
     pub paste_delay_ms: u64,
+    #[serde(default)]
+    pub stt_api: SttApiSettings,
 }
 
 fn default_model() -> String {
@@ -539,6 +593,42 @@ fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
     changed
 }
 
+fn ensure_stt_api_defaults(settings: &mut AppSettings) -> bool {
+    let mut changed = false;
+    let default_stt_api = SttApiSettings::default();
+
+    // Ensure all default providers exist
+    for provider in &default_stt_api.providers {
+        if settings
+            .stt_api
+            .providers
+            .iter()
+            .all(|existing| existing.id != provider.id)
+        {
+            settings.stt_api.providers.push(provider.clone());
+            changed = true;
+        }
+
+        if !settings.stt_api.api_keys.contains_key(&provider.id) {
+            settings
+                .stt_api
+                .api_keys
+                .insert(provider.id.clone(), String::new());
+            changed = true;
+        }
+
+        if !settings.stt_api.models.contains_key(&provider.id) {
+            settings
+                .stt_api
+                .models
+                .insert(provider.id.clone(), "whisper-1".to_string());
+            changed = true;
+        }
+    }
+
+    changed
+}
+
 pub const SETTINGS_STORE_PATH: &str = "settings_store.json";
 
 pub fn get_default_settings() -> AppSettings {
@@ -632,6 +722,7 @@ pub fn get_default_settings() -> AppSettings {
         experimental_enabled: false,
         keyboard_implementation: KeyboardImplementation::default(),
         paste_delay_ms: default_paste_delay_ms(),
+        stt_api: SttApiSettings::default(),
     }
 }
 
@@ -653,6 +744,27 @@ impl AppSettings {
         provider_id: &str,
     ) -> Option<&mut PostProcessProvider> {
         self.post_process_providers
+            .iter_mut()
+            .find(|provider| provider.id == provider_id)
+    }
+
+    pub fn active_stt_api_provider(&self) -> Option<&SttApiProvider> {
+        self.stt_api
+            .providers
+            .iter()
+            .find(|provider| provider.id == self.stt_api.provider_id)
+    }
+
+    pub fn stt_api_provider(&self, provider_id: &str) -> Option<&SttApiProvider> {
+        self.stt_api
+            .providers
+            .iter()
+            .find(|provider| provider.id == provider_id)
+    }
+
+    pub fn stt_api_provider_mut(&mut self, provider_id: &str) -> Option<&mut SttApiProvider> {
+        self.stt_api
+            .providers
             .iter_mut()
             .find(|provider| provider.id == provider_id)
     }
@@ -702,7 +814,9 @@ pub fn load_or_create_app_settings(app: &AppHandle) -> AppSettings {
         default_settings
     };
 
-    if ensure_post_process_defaults(&mut settings) {
+    let changed =
+        ensure_post_process_defaults(&mut settings) || ensure_stt_api_defaults(&mut settings);
+    if changed {
         store.set("settings", serde_json::to_value(&settings).unwrap());
     }
 
@@ -726,7 +840,9 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
         default_settings
     };
 
-    if ensure_post_process_defaults(&mut settings) {
+    let changed =
+        ensure_post_process_defaults(&mut settings) || ensure_stt_api_defaults(&mut settings);
+    if changed {
         store.set("settings", serde_json::to_value(&settings).unwrap());
     }
 

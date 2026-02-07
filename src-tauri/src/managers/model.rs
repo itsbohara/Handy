@@ -14,11 +14,12 @@ use std::sync::Mutex;
 use tar::Archive;
 use tauri::{AppHandle, Emitter, Manager};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type, PartialEq)]
 pub enum EngineType {
     Whisper,
     Parakeet,
     Moonshine,
+    Api,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -203,6 +204,26 @@ impl ModelManager {
             },
         );
 
+        // Add API model option for external STT API
+        available_models.insert(
+            "api".to_string(),
+            ModelInfo {
+                id: "api".to_string(),
+                name: "External API".to_string(),
+                description: "Use an external OpenAI-compatible STT API endpoint.".to_string(),
+                filename: "api".to_string(),
+                url: None, // No download needed
+                size_mb: 0,
+                is_downloaded: true, // Always available
+                is_downloading: false,
+                partial_size: 0,
+                is_directory: false,
+                engine_type: EngineType::Api,
+                accuracy_score: 0.90, // Dependent on API provider
+                speed_score: 0.95,    // Fast - just network roundtrip
+            },
+        );
+
         let manager = Self {
             app_handle: app_handle.clone(),
             models_dir,
@@ -262,6 +283,14 @@ impl ModelManager {
         let mut models = self.available_models.lock().unwrap();
 
         for model in models.values_mut() {
+            // API model is always "downloaded" - it doesn't need local files
+            if model.engine_type == EngineType::Api {
+                model.is_downloaded = true;
+                model.is_downloading = false;
+                model.partial_size = 0;
+                continue;
+            }
+
             if model.is_directory {
                 // For directory-based models, check if the directory exists
                 let model_path = self.models_dir.join(&model.filename);

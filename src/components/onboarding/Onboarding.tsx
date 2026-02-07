@@ -22,8 +22,10 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
     try {
       const result = await commands.getAvailableModels();
       if (result.status === "ok") {
-        // Only show downloadable models for onboarding
-        setAvailableModels(result.data.filter((m) => !m.is_downloaded));
+        // Show downloadable models + API model (which is always "downloaded" but should be selectable)
+        setAvailableModels(
+          result.data.filter((m) => !m.is_downloaded || m.id === "api"),
+        );
       } else {
         setError(t("onboarding.errors.loadModels"));
       }
@@ -37,20 +39,43 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
     setDownloading(true);
     setError(null);
 
+    // API model doesn't need downloading - just select it
+    if (modelId === "api") {
+      try {
+        const result = await commands.setActiveModel(modelId);
+        if (result.status === "error") {
+          console.error("Failed to select API model:", result.error);
+          setError(result.error);
+          setDownloading(false);
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to select API model:", err);
+        setError(String(err));
+        setDownloading(false);
+        return;
+      }
+    }
+
     // Immediately transition to main app - download will continue in footer
     onModelSelected();
 
-    try {
-      const result = await commands.downloadModel(modelId);
-      if (result.status === "error") {
-        console.error("Download failed:", result.error);
-        setError(t("onboarding.errors.downloadModel", { error: result.error }));
+    // For non-API models, start the download after transitioning
+    if (modelId !== "api") {
+      try {
+        const result = await commands.downloadModel(modelId);
+        if (result.status === "error") {
+          console.error("Download failed:", result.error);
+          setError(
+            t("onboarding.errors.downloadModel", { error: result.error }),
+          );
+          setDownloading(false);
+        }
+      } catch (err) {
+        console.error("Download failed:", err);
+        setError(t("onboarding.errors.downloadModel", { error: String(err) }));
         setDownloading(false);
       }
-    } catch (err) {
-      console.error("Download failed:", err);
-      setError(t("onboarding.errors.downloadModel", { error: String(err) }));
-      setDownloading(false);
     }
   };
 

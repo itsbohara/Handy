@@ -9,6 +9,7 @@
   "sidebar": {
     "general": "General",
     "advanced": "Advanced",
+    "sttApi": "STT API",
     "postProcessing": "Post Process",
     "history": "History",
     "debug": "Debug",
@@ -51,6 +52,10 @@
       "moonshine-base": {
         "name": "Moonshine Base",
         "description": "Very fast, English only. Handles accents well."
+      },
+      "api": {
+        "name": "External API",
+        "description": "Use an external OpenAI-compatible STT API endpoint. No local model needed."
       }
     },
     "errors": {
@@ -99,6 +104,7 @@
     "modelError": "Model Error",
     "modelUnloaded": "Model Unloaded",
     "noModelDownloadRequired": "No Model - Download Required",
+    "apiModelNotConfigured": "{{modelName}} - Configure in STT API settings",
     "deleteModel": "Delete {{modelName}}"
   },
   "settings": {
@@ -241,6 +247,32 @@
         "placeholder": "Add a word",
         "add": "Add",
         "remove": "Remove {{word}}"
+      }
+    },
+    "sttApi": {
+      "title": "STT API",
+      "enabled": {
+        "title": "Use External STT API",
+        "description": "Send audio to an OpenAI-compatible API endpoint instead of using local models."
+      },
+      "provider": {
+        "title": "Provider",
+        "description": "Select an OpenAI-compatible STT provider."
+      },
+      "baseUrl": {
+        "title": "Base URL",
+        "description": "API base URL for the custom provider.",
+        "placeholder": "http://localhost:8000/v1"
+      },
+      "apiKey": {
+        "title": "API Key",
+        "description": "API key for authentication (if required).",
+        "placeholder": "sk-..."
+      },
+      "model": {
+        "title": "Model",
+        "description": "Model identifier to use for transcription.",
+        "placeholder": "whisper-1"
       }
     },
     "postProcessing": {

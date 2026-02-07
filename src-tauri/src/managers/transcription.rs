@@ -224,6 +224,13 @@ impl TranscriptionManager {
 
         // Create appropriate engine based on model type
         let loaded_engine = match model_info.engine_type {
+            EngineType::Api => {
+                // API models don't need local loading - transcription happens via HTTP
+                return Err(anyhow::anyhow!(
+                    "API model '{}' should use STT API transcription directly, not local model loading",
+                    model_id
+                ));
+            }
             EngineType::Whisper => {
                 let mut engine = WhisperEngine::new();
                 engine.load_model(&model_path).map_err(|e| {
@@ -361,6 +368,9 @@ impl TranscriptionManager {
             return Ok(String::new());
         }
 
+        // Get current settings for configuration
+        let settings = get_settings(&self.app_handle);
+
         // Check if model is loaded, if not try to load it
         {
             // If the model is loading, wait for it to complete.
@@ -375,10 +385,7 @@ impl TranscriptionManager {
             }
         }
 
-        // Get current settings for configuration
-        let settings = get_settings(&self.app_handle);
-
-        // Perform transcription with the appropriate engine
+        // Perform transcription with the appropriate local engine
         let result = {
             let mut engine_guard = self.engine.lock().unwrap();
             let engine = engine_guard.as_mut().ok_or_else(|| {
